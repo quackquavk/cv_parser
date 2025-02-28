@@ -19,7 +19,6 @@ class DocumentController:
         return document_name.lower().endswith('.pdf')
 
     async def get_document(self, document_id: str) -> Optional[Dict[str, Any]]:
-        """Get a document's parsed data by ID"""
         try:
             result = await self.cv_collection.find_one({"_id": ObjectId(document_id)})
             if result:
@@ -39,8 +38,12 @@ class DocumentController:
             if not doc_ids:
                 return []
             
+            # Get the vector controller instance
+            from database import database
+            vector_controller = database.controller.vector_controller
+            
             # Perform vector search
-            results = await self.db.controller.vector_controller.search(
+            results = await vector_controller.search(
                 pdf_list=doc_ids,
                 query=query
             )

@@ -32,12 +32,19 @@ async def search_documents(query: DocumentSearchRequest):
 async def search_documents_bulk(document_list: DocumentList, query: str = Query(...)):
     """Search through a specific list of documents"""
     try:
+        print(f"Bulk search request - Query: {query}, Documents: {document_list.document_ids}")
         results = await database.controller.vector_controller.search(
-            document_list.document_ids,
-            query
+            pdf_list=document_list.document_ids,
+            query=query,
+            k=10  # Increase k to ensure we get enough results after filtering
         )
+        if not results:
+            print("No results found for bulk search")
+            return {}
+        print(f"Found {len(results)} results")
         return results
     except Exception as e:
+        print(f"Bulk search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{document_id}")
@@ -57,5 +64,15 @@ async def delete_document(document_id: str):
     try:
         await database.controller.document_controller.delete_document(document_id, database)
         return {"message": "Document deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/debug/vector-store")
+async def debug_vector_store():
+    """Debug endpoint to check vector store status"""
+    try:
+        from database import database
+        result = await database.controller.vector_controller.debug_vector_store()
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

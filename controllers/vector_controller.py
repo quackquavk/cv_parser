@@ -23,14 +23,17 @@ class VectorController:
         self.acollection = self.adb.get_collection("cv")
         self.collection = self.db.get_collection("vectorstore")
 
-        self.embedding = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
+        self.embedding = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        
+        # Initialize vector store with proper configuration
         self.vector_store = MongoDBAtlasVectorSearch(
-            collection = self.collection,
-            embedding = self.embedding,
-            relevance_score_fn = "cosine",
-            index_name = 'vector_index'
+            collection=self.collection,
+            embedding=self.embedding,
+            index_name="default",  # Make sure this matches your Atlas search index
+            embedding_key="embedding",  # The field name for the embedding vector
+            text_key="text",  # The field name for the text content
+            metadata_key="metadata"  # The field name for metadata
         )
-
 
     #load the pdf
     def load_pdf(self, document_url: str):
@@ -46,46 +49,89 @@ class VectorController:
 
     def save_vector(self, cv, document_id: str):
         try:
-            imp_details = cv["all_skills"]
-            if imp_details:
-                splitter = RecursiveCharacterTextSplitter(chunk_size = 500, chunk_overlap = 100)
-                pages = splitter.split_text(imp_details)
-                met_pages = []
-                for i, page in enumerate(pages):
-                    metadata = {
+            # Extract skills and experience for vector search
+            content = cv.get("all_skills", "") + "\n"
+            if "work_experience" in cv:
+                for exp in cv["work_experience"]:
+                    content += f"Experience: {exp.get('job_title', '')} at {exp.get('company_name', '')}\n"
+                    if "responsibilities" in exp:
+                        content += "Responsibilities:\n" + "\n".join(exp["responsibilities"]) + "\n"
+
+            # Split content into chunks
+            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+            chunks = splitter.split_text(content)
+
+            # Create documents with metadata
+            documents = []
+            for i, chunk in enumerate(chunks):
+                doc = Document(
+                    page_content=chunk,
+                    metadata={
                         "doc_id": document_id,
-                        "length": len(page),
-                        "page_no": i,
+                        "chunk_id": i,
+                        "source": "cv"
                     }
-                    met_pages.append(Document(page_content = page, metadata = metadata))
-                response = self.vector_store.add_documents(met_pages)
-                return True
-        except HTTPException as e:
-            raise HTTPException(status_code= 500, detail = f"Error saving the vector. Details: {e}")
+                )
+                documents.append(doc)
+
+            # Add documents to vector store
+            self.vector_store.add_documents(documents)
+            return True
+        except Exception as e:
+            print(f"Error saving vector: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error saving vector: {str(e)}")
 
 
-    async def search(self, pdf_list, query: str, k = 5):
+    async def search(self, pdf_list, query: str, k=5):
         """Search through vectors using similarity search"""
         try:
+            # Perform vector search with increased k if filtering will be applied
+            k_search = k * 3 if pdf_list else k  # Get more results if we need to filter
+            
+            # Perform vector search
             results = self.vector_store.similarity_search_with_score(
-                query = query,
-                k = k,
-                pre_filter={"doc_id": {"$in": pdf_list}}
+                query=query,
+                k=k_search
             )
             
-            # Get full CV data for each result
+            # Process results
             search_results = {}
             for doc, score in results:
-                doc_id = doc.metadata["doc_id"]
-                cv_data = await self.acollection.find_one({"_id": ObjectId(doc_id)})
-                if cv_data:
-                    search_results[doc_id] = {
-                        "similarity_score": score,
-                        "parsed_cv": cv_data.get("parsed_cv", {})
-                    }
+                doc_id = doc.metadata.get("doc_id")
+                if not doc_id:
+                    continue
+                
+                # Filter by pdf_list if provided
+                if pdf_list and doc_id not in pdf_list:
+                    continue
+                
+                try:
+                    # Get full CV data
+                    cv_data = await self.acollection.find_one({"_id": ObjectId(doc_id)})
+                    if cv_data:
+                        if doc_id not in search_results:
+                            search_results[doc_id] = {
+                                "similarity_score": float(score),
+                                "parsed_cv": cv_data.get("parsed_cv", {}),
+                                "matching_content": []
+                            }
+                        
+                        # Add matching content
+                        search_results[doc_id]["matching_content"].append({
+                            "content": doc.page_content,
+                            "score": float(score)
+                        })
+                        
+                        # Break if we have enough results
+                        if len(search_results) >= k:
+                            break
+                except Exception as e:
+                    print(f"Error processing document {doc_id}: {str(e)}")
+                    continue
             
             return search_results
         except Exception as e:
+            print(f"Search error: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error performing search: {str(e)}")
 
 
@@ -139,4 +185,34 @@ class VectorController:
             self.collection.delete_many({})
         except HTTPException as e:
             raise HTTPException(status_code=500, detail=f"Error deleting all vectors. Details: {e}")
+
+    async def debug_vector_store(self):
+        """Debug method to check vector store contents"""
+        try:
+            # Check vector store collection
+            vector_count = self.collection.count_documents({})
+            print(f"Vector store documents: {vector_count}")
+            
+            # Get a sample document
+            sample = self.collection.find_one({})
+            if sample:
+                # Convert ObjectId to string and remove large embedding vectors
+                sample_data = {
+                    k: str(v) if isinstance(v, ObjectId) else v
+                    for k, v in sample.items() 
+                    if k not in ['embedding']  # Exclude the embedding vector
+                }
+            
+            # Check CV collection
+            cv_count = await self.acollection.count_documents({})
+            print(f"CV collection documents: {cv_count}")
+            
+            return {
+                "vector_store_count": vector_count,
+                "cv_collection_count": cv_count,
+                "sample_metadata": sample_data if sample else None
+            }
+        except Exception as e:
+            print(f"Debug error: {str(e)}")
+            return {"error": str(e)}
             
