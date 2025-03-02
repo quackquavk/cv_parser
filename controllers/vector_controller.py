@@ -142,10 +142,6 @@ class VectorController:
             pdf_text = self.load_pdf(document_url)
             pdf_text = "<CV>" + pdf_text + "</CV>"
             result = await LLMGenerator().generate_parsed_cv(llm_type="cv_parser", cv=pdf_text, llm_name='gemini')
-            
-            # If document_id is provided, save vector embeddings
-            if document_id:
-                self.save_vector(result, document_id)
                 
             return result
         except Exception as e:

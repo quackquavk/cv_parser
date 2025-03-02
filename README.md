@@ -1,228 +1,133 @@
-# CV Parser API
+# Project Documentation
 
-A powerful CV/Resume parsing and semantic search API built with FastAPI, MongoDB Atlas Vector Search, and Google's Generative AI.
+## Overview
 
-## Features
-
-- 📄 **CV Parsing**: Automatically extracts structured information from PDF resumes including:
-  - Personal Information (name, contact details, location)
-  - Work Experience
-  - Education
-  - Skills
-  - Projects
-  - Certifications
-  - Ratings and Scores
-
-- 🔍 **Semantic Search**: Advanced search capabilities using vector embeddings
-  - Natural language queries
-  - Similarity-based matching
-  - Contextual understanding
-  - Bulk search support
-  - Configurable search parameters
-
-- 💾 **Vector Store Integration**
-  - MongoDB Atlas Vector Search integration
-  - Efficient document embedding storage
-  - Fast similarity search
-  - Metadata management
-
-- 🔄 **Real-time Processing**
-  - Asynchronous operations
-  - Efficient file handling
-  - Robust error handling
-  - Debug endpoints for monitoring
-
-## Tech Stack
-
-- **Backend**: FastAPI
-- **Database**: MongoDB Atlas
-- **Vector Search**: MongoDB Atlas Vector Search
-- **AI/ML**: 
-  - Google Generative AI (Gemini)
-  - LangChain for embeddings and document processing
-- **Testing**: Custom test suite with httpx
-
-## Prerequisites
-
-- Python 3.11+
-- MongoDB Atlas account
-- Google Cloud API key (for Gemini)
-- MongoDB Atlas Vector Search index configured
+This project is a FastAPI application designed for uploading, managing, and retrieving CV documents. It provides a RESTful API for document handling, including uploading, fetching, and deleting documents.
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd cv_parser
-```
+To set up the project, follow these steps:
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd <repository-directory>
+   ```
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+2. **Create a virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+   ```
 
-4. Create a `.env` file with the following variables:
-```env
-MONGODB_URI=your_mongodb_atlas_uri
-DATABASE=cv_parser
-GOOGLE_API_KEY=your_google_api_key
-```
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Configuration
+4. **Run the application:**
+   ```bash
+   uvicorn main:app --reload
+   ```
 
-1. MongoDB Atlas Vector Search Index:
-   - Create an index named "default" on the "vectorstore" collection
-   - Configure the index with the following fields:
-     - embedding_key: "embedding"
-     - text_key: "text"
-     - metadata_key: "metadata"
+## API Endpoints
 
-2. Create necessary directories:
-```bash
-mkdir documents
-```
+### Upload Document
 
-## Usage
+- **Endpoint:** `POST /upload`
+- **Description:** Upload and parse CV documents.
+- **Request Body:**
+  - `files`: A list of files to upload (required).
+  - `folder_id`: An optional identifier for the folder where documents will be stored.
+- **Response:**
+  - Returns a response from the document upload controller.
+- **Error Handling:**
+  - Returns a 500 status code with an error message if an exception occurs.
+- **Sample Fetch API Call:**
+  ```javascript
+  const formData = new FormData();
+  formData.append('files', fileInput.files[0]); // Assuming fileInput is an input element of type file
+  formData.append('folder_id', 'your-folder-id');
 
-1. Start the FastAPI server:
-```bash
-uvicorn main:app --reload
-```
+  fetch('http://localhost:8000/upload', {
+      method: 'POST',
+      body: formData,
+  })
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));
+  ```
 
-2. API Endpoints:
+### Get All Documents
 
-### Document Upload
-```http
-POST /document/upload
-Content-Type: multipart/form-data
-
-files: [PDF files]
-folder_id: (optional) string
-```
-
-### Semantic Search
-```http
-POST /document/search
-Content-Type: application/json
-
-{
-    "query": "search query string"
-}
-```
-
-### Bulk Search
-```http
-POST /document/search/bulk?query=search_query
-Content-Type: application/json
-
-{
-    "document_ids": ["id1", "id2", ...]
-}
-```
+- **Endpoint:** `GET /document/all`
+- **Description:** Retrieve all uploaded documents.
+- **Response:**
+  - Returns a list of all documents.
+- **Error Handling:**
+  - Returns a 500 status code with an error message if an exception occurs.
+- **Sample Fetch API Call:**
+  ```javascript
+  fetch('http://localhost:8000/document/all')
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));
+  ```
 
 ### Get Document
-```http
-GET /document/{document_id}
-```
+
+- **Endpoint:** `GET /{document_id}`
+- **Description:** Retrieve a specific document's parsed data.
+- **Path Parameters:**
+  - `document_id`: The ID of the document to retrieve (required).
+- **Response:**
+  - Returns the parsed data of the specified document.
+- **Error Handling:**
+  - Returns a 404 status code if the document is not found.
+  - Returns a 500 status code with an error message if an exception occurs.
+- **Sample Fetch API Call:**
+  ```javascript
+  const documentId = 'your-document-id';
+  fetch(`http://localhost:8000/${documentId}`)
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));
+  ```
 
 ### Delete Document
-```http
-DELETE /document/{document_id}
-```
 
-### Debug Vector Store
-```http
-GET /document/debug/vector-store
-```
+- **Endpoint:** `DELETE /{document_id}`
+- **Description:** Delete a document and its associated data.
+- **Path Parameters:**
+  - `document_id`: The ID of the document to delete (required).
+- **Response:**
+  - Returns a success message upon successful deletion.
+- **Error Handling:**
+  - Returns a 500 status code with an error message if an exception occurs.
+- **Sample Fetch API Call:**
+  ```javascript
+  const documentId = 'your-document-id';
+  fetch(`http://localhost:8000/${documentId}`, {
+      method: 'DELETE',
+  })
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));
+  ```
 
-## Testing
+## Database Integration
 
-Run the comprehensive test suite:
-```bash
-python test_all_endpoints.py
-```
-
-The test suite covers:
-- Server health check
-- CV upload
-- Semantic search with various queries
-- Bulk search functionality
-- Document retrieval
-- Vector store debugging
-
-## Response Examples
-
-### CV Upload Response
-```json
-{
-  "results": [{
-    "filename": "example.pdf",
-    "document_id": "document_id",
-    "parsed_cv": {
-      "name": "John Doe",
-      "position": "Software Engineer",
-      "skills": ["Python", "FastAPI", "MongoDB"],
-      ...
-    }
-  }]
-}
-```
-
-### Search Response
-```json
-{
-  "document_id": {
-    "similarity_score": 0.85,
-    "parsed_cv": {
-      "name": "John Doe",
-      "position": "Software Engineer",
-      ...
-    },
-    "matching_content": [{
-      "content": "matched text",
-      "score": 0.85
-    }]
-  }
-}
-```
+This application integrates with a database to manage document storage and retrieval. The database operations are handled through a controller, which abstracts the database interactions.
 
 ## Error Handling
 
-The API implements comprehensive error handling:
-- File validation
-- PDF parsing errors
-- Database connection issues
-- Search query validation
-- Vector store operations
-
-## Performance Considerations
-
-- Uses async/await for non-blocking operations
-- Implements connection pooling for MongoDB
-- Optimizes vector search with proper indexing
-- Handles large PDF files efficiently
-- Implements proper cleanup of temporary files
-
-## Security
-
-- Input validation for all endpoints
-- Secure file handling
-- Environment variable management
-- API key protection
-- CORS configuration
+The application uses FastAPI's built-in exception handling to return appropriate HTTP status codes and error messages for various failure scenarios.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for more details.
 

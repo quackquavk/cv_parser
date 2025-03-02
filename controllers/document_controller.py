@@ -27,7 +27,18 @@ class DocumentController:
         except Exception as e:
             self.logger.error(f"Error getting document {document_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error retrieving document: {str(e)}")
+        
+    async def get_all_documents(self) -> List[Dict[str, Any]]:
+        """Get all documents"""
+        try:
+            documents = await self.cv_collection.find({}, {"_id": 1, "parsed_cv": 1}).to_list(length=None)
+            
+            return [{"id": str(doc["_id"]), "parsed_cv": doc["parsed_cv"]} for doc in documents]
+        except Exception as e:
+            self.logger.error(f"Error getting all documents: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving documents: {str(e)}")
 
+        
     async def search_documents(self, query: str) -> List[Dict[str, Any]]:
         """Search through all documents using vector search"""
         try:
