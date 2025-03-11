@@ -7,4 +7,5 @@ langchain==0.3.2
 langchain-google-genai==2.0.0
 langchain-mongodb==0.2.0
 python-dotenv==1.0.1
-pypdf==4.0.2 
+pypdf==4.0.2
+slowapi==0.1.9 
