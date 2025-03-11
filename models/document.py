@@ -11,7 +11,6 @@ class Document(BaseModel):
     folder_id: Optional[str] = None
 
     class Config:
-        populate_by_name = True
         json_encoders = {ObjectId: str}
         populate_by_name = True
 
